@@ -258,11 +258,23 @@ async def lifespan(app: FastAPI):
     # Shutdown logic (optional)
     logger.info("Shutting down service")
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(
     title="Taskmaster MCP Service",
     description="MCP Service connecting Taskmaster APIs and Newsletter Subscription DB to ChatGPT",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    redirect_slashes=False  # Important for MCP clients
+)
+
+# Add CORS middleware for cloud connectivity
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # --- MCP SSE Endpoints ---
