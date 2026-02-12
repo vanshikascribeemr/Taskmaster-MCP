@@ -52,8 +52,8 @@ def compute_tfidf(tasks: List[Task]):
         
         task.importanceScore = round(score / len(doc), 4) if doc else 0.0
 
-def get_summarized_report(category_name: str, tasks: List[Task]) -> str:
-    """Generates a concise ranked summary."""
+def get_summarized_report(category_name: str, tasks: List[Task], detail_level: str = "short", time_window_label: str = "Last 7 Days") -> str:
+    """Generates a ranked summary with configurable detail level."""
     compute_tfidf(tasks)
     # Sort by importance
     ranked_tasks = sorted(tasks, key=lambda x: x.importanceScore, reverse=True)
@@ -61,15 +61,33 @@ def get_summarized_report(category_name: str, tasks: List[Task]) -> str:
     # Take top 5 tasks for summary
     top_tasks = ranked_tasks[:5]
     
-    summary_lines = [f"### {category_name} - Weekly Summary"]
+    summary_lines = [f"### {category_name} - Summary ({time_window_label})"]
     if not top_tasks:
-        summary_lines.append("No active tasks or updates found in the last 7 days.")
+        summary_lines.append(f"No active tasks or updates found in {time_window_label.lower()}.")
     else:
         for task in top_tasks:
-            status_icon = "[DONE]" if "Done" in task.taskStatus else "[PNDG]"
-            summary_lines.append(f"- {status_icon} **{task.taskSubject}** ({task.taskStatus})")
-            if task.followUpComments:
-                latest = task.followUpComments[0][:100] + "..." if len(task.followUpComments[0]) > 100 else task.followUpComments[0]
-                summary_lines.append(f"  *Latest update:* {latest}")
+            summary_lines.append(get_single_task_summary(task, detail_level))
     
     return "\n".join(summary_lines)
+
+def get_single_task_summary(task: Task, detail_level: str = "short") -> str:
+    """Generates a summary for a single task."""
+    status_icon = "[DONE]" if "Done" in task.taskStatus else "[PNDG]"
+    summary = f"- {status_icon} **{task.taskSubject}** (ID: {task.taskId}, Status: {task.taskStatus})"
+    
+    if not task.followUpComments:
+        return summary
+        
+    if detail_level == "short":
+        # Just the latest comment, truncated
+        latest = task.followUpComments[0][:150] + "..." if len(task.followUpComments[0]) > 150 else task.followUpComments[0]
+        summary += f"\n  *Latest update:* {latest}"
+    else:
+        # Detailed: combine all comments or first few in detail
+        summary += "\n  *Recent Updates:*"
+        for i, comment in enumerate(task.followUpComments[:5]): # Show up to 5 comments in detail
+            summary += f"\n    {i+1}. {comment}"
+        if len(task.followUpComments) > 5:
+            summary += f"\n    ... and {len(task.followUpComments) - 5} more updates."
+            
+    return summary

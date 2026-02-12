@@ -47,11 +47,12 @@ async def handle_list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="search_tasks",
-            description="Search for tasks by alias, provider name, or keyword",
+            description="Search for tasks by alias, provider name, keyword or Task ID",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "query": {"type": "string"}
+                    "query": {"type": "string"},
+                    "time_window_days": {"type": "integer", "description": "Number of days to look back for updates. Default 7. Use 0 or null for all time."}
                 },
                 "required": ["query"]
             }
@@ -62,9 +63,24 @@ async def handle_list_tools() -> list[types.Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "provider_alias": {"type": "string"}
+                    "provider_alias": {"type": "string"},
+                    "detail_level": {"type": "string", "enum": ["short", "detailed"], "default": "short"},
+                    "time_window_days": {"type": "integer", "default": 7}
                 },
                 "required": ["provider_alias"]
+            }
+        ),
+        types.Tool(
+            name="get_task_summary",
+            description="Fetch and summarize a specific task by its ID",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "task_id": {"type": "integer"},
+                    "detail_level": {"type": "string", "enum": ["short", "detailed"], "default": "short"},
+                    "time_window_days": {"type": "integer", "description": "Number of days to look back for updates. Null for all time."}
+                },
+                "required": ["task_id"]
             }
         ),
         types.Tool(
@@ -154,11 +170,20 @@ async def handle_call_tool(name: str, arguments: dict | None) -> list[types.Text
         return [types.TextContent(type="text", text=str(res))]
     elif name == "search_tasks":
         query = arguments.get("query")
-        res = await tasks.get_tasks_by_alias(query, taskmaster_client)
+        window = arguments.get("time_window_days", 7)
+        res = await tasks.get_tasks_by_alias(query, taskmaster_client, time_window_days=window)
         return [types.TextContent(type="text", text=str(res))]
     elif name == "get_provider_updates":
         alias = arguments.get("provider_alias")
-        res = await tasks.get_provider_updates(alias, taskmaster_client)
+        detail = arguments.get("detail_level", "short")
+        window = arguments.get("time_window_days", 7)
+        res = await tasks.get_provider_updates(alias, taskmaster_client, detail_level=detail, time_window_days=window)
+        return [types.TextContent(type="text", text=str(res))]
+    elif name == "get_task_summary":
+        tid = arguments.get("task_id")
+        detail = arguments.get("detail_level", "short")
+        window = arguments.get("time_window_days")
+        res = await tasks.get_task_summary(tid, taskmaster_client, detail_level=detail, time_window_days=window)
         return [types.TextContent(type="text", text=str(res))]
     elif name == "get_blocked_tasks":
         res = await tasks.get_all_blocked_tasks(taskmaster_client)
