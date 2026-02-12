@@ -288,44 +288,47 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 # --- MCP SSE Endpoints ---
 
-@app.get("/sse")
-@app.get("/sse/")
+@app.api_route("/sse", methods=["GET", "POST", "DELETE", "OPTIONS", "PUT"])
+@app.api_route("/sse/", methods=["GET", "POST", "DELETE", "OPTIONS", "PUT"])
 async def handle_sse(request: Request):
     """Establish SSE connection with buffering disabled for Render"""
-    logger.info("SSE GET request received", path=request.url.path)
-    # request.send is not available in FastAPI Request, use request.scope["send"]
-    async with sse.connect_sse(request.scope, request.receive, request.scope["send"]) as (read_stream, write_stream):
-        try:
-            await mcp_server.run(
-                read_stream,
-                write_stream,
-                InitializationOptions(
-                    server_name="taskmaster-mcp",
-                    server_version="1.0.0",
-                    capabilities=mcp_server.get_capabilities(
-                        notification_options=NotificationOptions(),
-                        experimental_capabilities={},
+    if request.method == "GET":
+        logger.info("SSE Connection Opening", path=request.url.path, client=request.client.host)
+        
+        # SseServerTransport handles the response, but we can nudge it with headers in the scope
+        request.scope["headers"].append((b"x-accel-buffering", b"no"))
+        request.scope["headers"].append((b"cache-control", b"no-cache"))
+        
+        async with sse.connect_sse(request.scope, request.receive, request.scope["send"]) as (read_stream, write_stream):
+            try:
+                await mcp_server.run(
+                    read_stream,
+                    write_stream,
+                    InitializationOptions(
+                        server_name="taskmaster-mcp",
+                        server_version="1.0.0",
+                        capabilities=mcp_server.get_capabilities(
+                            notification_options=NotificationOptions(),
+                            experimental_capabilities={},
+                        ),
                     ),
-                ),
-            )
-        except Exception as e:
-            logger.error("MCP Server Error", error=str(e))
+                )
+            except Exception as e:
+                logger.error("MCP Server Stream Error", error=str(e))
+    else:
+        # Some clients try to POST to /sse as a fallback
+        logger.info("SSE POST/Other fallback", method=request.method, path=request.url.path)
+        await sse.handle_post_request(request.scope, request.receive, request.scope["send"])
 
-@app.post("/sse")
-@app.post("/sse/")
-@app.post("/messages")
-@app.post("/messages/")
+@app.api_route("/messages", methods=["GET", "POST", "DELETE", "OPTIONS", "PUT"])
+@app.api_route("/messages/", methods=["GET", "POST", "DELETE", "OPTIONS", "PUT"])
 async def handle_messages(request: Request):
-    """Unified POST hub for all possible message endpoints to prevent 405 errors"""
-    logger.info("POST message received", path=request.url.path)
-    # request.send is not available in FastAPI Request, use request.scope["send"]
-    await sse.handle_post_request(request.scope, request.receive, request.scope["send"])
-
-@app.get("/messages")
-@app.get("/messages/")
-async def handle_messages_get(request: Request):
-    """Helpful GET for messages to debug connectivity"""
-    return {"message": "The messages endpoint is for POST requests from the MCP client."}
+    """Unified Hub for message processing"""
+    if request.method == "POST":
+        logger.info("MCP Message Received", path=request.url.path)
+        await sse.handle_post_request(request.scope, request.receive, request.scope["send"])
+    else:
+        return {"status": "ok", "method": request.method, "info": "Send POST here for MCP messages"}
 
 # --- Standard REST Endpoints for ChatGPT Actions ---
 
