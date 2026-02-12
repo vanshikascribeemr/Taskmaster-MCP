@@ -351,13 +351,27 @@ async def unsubscribe_category(user_email: str, category_id: int, db: Session = 
 def health_check():
     return {"status": "healthy"}
 
+# --- Root Welcome Page ---
+@app.get("/")
+async def root():
+    return {
+        "name": "Taskmaster MCP Service",
+        "status": "online",
+        "mcp_endpoint": "/sse",
+        "documentation": "/docs"
+    }
+
 if __name__ == "__main__":
     import uvicorn
     import argparse
+    import os
     
     parser = argparse.ArgumentParser()
     parser.add_argument("--stdio", action="store_true", help="Run in MCP stdio mode")
     args = parser.parse_args()
+    
+    # Get port from environment (Render/Cloud) or fallback to 8000
+    port = int(os.environ.get("PORT", 8000))
     
     if args.stdio:
         async def run_stdio():
@@ -377,5 +391,6 @@ if __name__ == "__main__":
         asyncio.run(run_stdio())
     else:
         # Standard FastAPI/Uvicorn run for Web (ChatGPT REST + Cloud MCP SSE)
-        uvicorn.run(app, host="0.0.0.0", port=int(sys.argv[sys.argv.index("--port") + 1]) if "--port" in sys.argv else 8000)
+        logger.info("Starting web server", port=port)
+        uvicorn.run(app, host="0.0.0.0", port=port)
 
