@@ -28,7 +28,18 @@ class User(Base):
     name = Column(String, nullable=True)
 
 def init_db():
-    Base.metadata.create_all(bind=engine)
+    try:
+        # Check if we are using a real URL or a placeholder
+        if "@db" in settings.DATABASE_URL:
+            logger.error("Database connection failed: 'db' is a placeholder. Please set a valid DATABASE_URL in Render.")
+            return
+            
+        Base.metadata.create_all(bind=engine)
+        logger.info("Database schemas synchronized successfully")
+    except Exception as e:
+        logger.error("Critical: Could not initialize database", error=str(e), url=settings.DATABASE_URL.split('@')[-1] if '@' in settings.DATABASE_URL else "N/A")
+        # In some cloud environments, we might want to continue even if DB fails 
+        # so that non-DB tools can still function.
 
 def get_db():
     db = SessionLocal()
