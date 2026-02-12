@@ -287,19 +287,12 @@ app.add_middleware(
 # --- MCP SSE Endpoints ---
 
 @app.get("/sse")
+@app.get("/sse/")
 async def handle_sse(request: Request):
-    """Establish SSE connection for Cloud Antigravity with buffering disabled for Render"""
-    # Disable buffering for Render/Nginx to ensure events are sent immediately
-    headers = {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        "Connection": "keep-alive",
-        "X-Accel-Buffering": "no"
-    }
-    
+    """Establish SSE connection with buffering disabled for Render"""
+    logger.info("SSE GET request received", path=request.url.path)
     async with sse.connect_sse(request.scope, request.receive, request.send) as (read_stream, write_stream):
         try:
-            logger.info("SSE Connection Established", client=request.client.host)
             await mcp_server.run(
                 read_stream,
                 write_stream,
@@ -313,13 +306,22 @@ async def handle_sse(request: Request):
                 ),
             )
         except Exception as e:
-            logger.error("MCP Server Runtime Error", error=str(e))
-            # No need to raise here as the connection might already be closed
+            logger.error("MCP Server Error", error=str(e))
 
+@app.post("/sse")
+@app.post("/sse/")
 @app.post("/messages")
+@app.post("/messages/")
 async def handle_messages(request: Request):
-    """Handle POST messages from Cloud Antigravity"""
+    """Unified POST hub for all possible message endpoints to prevent 405 errors"""
+    logger.info("POST message received", path=request.url.path)
     await sse.handle_post_request(request.scope, request.receive, request.send)
+
+@app.get("/messages")
+@app.get("/messages/")
+async def handle_messages_get(request: Request):
+    """Helpful GET for messages to debug connectivity"""
+    return {"message": "The messages endpoint is for POST requests from the MCP client."}
 
 # --- Standard REST Endpoints for ChatGPT Actions ---
 
