@@ -287,9 +287,18 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 @app.get("/sse")
 async def handle_sse(request: Request):
-    """Establish SSE connection for Cloud Antigravity"""
+    """Establish SSE connection for Cloud Antigravity with buffering disabled for Render"""
+    # Disable buffering for Render/Nginx to ensure events are sent immediately
+    headers = {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no"
+    }
+    
     async with sse.connect_sse(request.scope, request.receive, request.send) as (read_stream, write_stream):
         try:
+            logger.info("SSE Connection Established", client=request.client.host)
             await mcp_server.run(
                 read_stream,
                 write_stream,
@@ -303,8 +312,8 @@ async def handle_sse(request: Request):
                 ),
             )
         except Exception as e:
-            logger.error("MCP Server Execution Error", error=str(e))
-            raise
+            logger.error("MCP Server Runtime Error", error=str(e))
+            # No need to raise here as the connection might already be closed
 
 @app.post("/messages")
 async def handle_messages(request: Request):
