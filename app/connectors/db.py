@@ -1,6 +1,9 @@
 from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, Table, UniqueConstraint
 from sqlalchemy.orm import sessionmaker, relationship, declarative_base
+import structlog
 from ..config import settings
+
+logger = structlog.get_logger()
 
 DATABASE_URL = settings.DATABASE_URL
 
