@@ -269,24 +269,28 @@ app = FastAPI(
 
 @app.get("/sse")
 async def handle_sse(request: Request):
-    """How Cloud Antigravity connects via Server-Sent Events"""
+    """Establish SSE connection for Cloud Antigravity"""
     async with sse.connect_sse(request.scope, request.receive, request.send) as (read_stream, write_stream):
-        await mcp_server.run(
-            read_stream,
-            write_stream,
-            InitializationOptions(
-                server_name="taskmaster-mcp",
-                server_version="1.0.0",
-                capabilities=mcp_server.get_capabilities(
-                    notification_options=NotificationOptions(),
-                    experimental_capabilities={},
+        try:
+            await mcp_server.run(
+                read_stream,
+                write_stream,
+                InitializationOptions(
+                    server_name="taskmaster-mcp",
+                    server_version="1.0.0",
+                    capabilities=mcp_server.get_capabilities(
+                        notification_options=NotificationOptions(),
+                        experimental_capabilities={},
+                    ),
                 ),
-            ),
-        )
+            )
+        except Exception as e:
+            logger.error("MCP Server Execution Error", error=str(e))
+            raise
 
 @app.post("/messages")
 async def handle_messages(request: Request):
-    """The POST hub for Cloud Antigravity communication"""
+    """Handle POST messages from Cloud Antigravity"""
     await sse.handle_post_request(request.scope, request.receive, request.send)
 
 # --- Standard REST Endpoints for ChatGPT Actions ---
