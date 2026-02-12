@@ -258,14 +258,21 @@ async def lifespan(app: FastAPI):
     # Shutdown logic (optional)
     logger.info("Shutting down service")
 
-from fastapi.middleware.cors import CORSMiddleware
+# Add global exception handler for debugging
+from fastapi.responses import JSONResponse
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error("Unhandled Exception", path=request.url.path, error=str(exc))
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Internal Server Error: {str(exc)}"}
+    )
 
 app = FastAPI(
     title="Taskmaster MCP Service",
     description="MCP Service connecting Taskmaster APIs and Newsletter Subscription DB to ChatGPT",
     version="1.0.0",
-    lifespan=lifespan,
-    redirect_slashes=False  # Important for MCP clients
+    lifespan=lifespan
 )
 
 # Add CORS middleware for cloud connectivity
@@ -276,12 +283,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Add global exception handler for debugging
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    logger.error("Unhandled Exception", path=request.url.path, error=str(exc))
-    return HTTPException(status_code=500, detail=f"Internal Server Error: {str(exc)}")
 
 # --- MCP SSE Endpoints ---
 
