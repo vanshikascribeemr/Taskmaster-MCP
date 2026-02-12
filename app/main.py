@@ -258,15 +258,8 @@ async def lifespan(app: FastAPI):
     # Shutdown logic (optional)
     logger.info("Shutting down service")
 
-# Add global exception handler for debugging
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    logger.error("Unhandled Exception", path=request.url.path, error=str(exc))
-    return JSONResponse(
-        status_code=500,
-        content={"detail": f"Internal Server Error: {str(exc)}"}
-    )
 
 app = FastAPI(
     title="Taskmaster MCP Service",
@@ -284,6 +277,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Add global exception handler for debugging
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error("Unhandled Exception", path=request.url.path, error=str(exc))
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Internal Server Error: {str(exc)}"}
+    )
+
 # --- MCP SSE Endpoints ---
 
 @app.get("/sse")
@@ -291,7 +293,8 @@ app.add_middleware(
 async def handle_sse(request: Request):
     """Establish SSE connection with buffering disabled for Render"""
     logger.info("SSE GET request received", path=request.url.path)
-    async with sse.connect_sse(request.scope, request.receive, request.send) as (read_stream, write_stream):
+    # request.send is not available in FastAPI Request, use request.scope["send"]
+    async with sse.connect_sse(request.scope, request.receive, request.scope["send"]) as (read_stream, write_stream):
         try:
             await mcp_server.run(
                 read_stream,
@@ -315,7 +318,8 @@ async def handle_sse(request: Request):
 async def handle_messages(request: Request):
     """Unified POST hub for all possible message endpoints to prevent 405 errors"""
     logger.info("POST message received", path=request.url.path)
-    await sse.handle_post_request(request.scope, request.receive, request.send)
+    # request.send is not available in FastAPI Request, use request.scope["send"]
+    await sse.handle_post_request(request.scope, request.receive, request.scope["send"])
 
 @app.get("/messages")
 @app.get("/messages/")
