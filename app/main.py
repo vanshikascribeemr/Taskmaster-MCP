@@ -277,6 +277,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Add global exception handler for debugging
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error("Unhandled Exception", path=request.url.path, error=str(exc))
+    return HTTPException(status_code=500, detail=f"Internal Server Error: {str(exc)}")
+
 # --- MCP SSE Endpoints ---
 
 @app.get("/sse")
