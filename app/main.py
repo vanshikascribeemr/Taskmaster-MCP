@@ -327,8 +327,10 @@ async def handle_sse(request: Request):
 @app.api_route("/messages", methods=["POST"])
 @app.api_route("/messages/", methods=["POST"])
 async def handle_messages(request: Request):
-    # logger.info("MCP Message received", session=request.query_params.get("session_id"))
-    await sse.handle_post_request(request.scope, request.receive, request.scope["send"])
+    """Unified Hub for message processing"""
+    # In some versions of the SDK, the method is handle_post_message
+    # It acts as an ASGI application, so we call it with (scope, receive, send)
+    await sse.handle_post_message(request.scope, request.receive, request.scope["send"])
 
 # --- Standard REST Endpoints for ChatGPT Actions ---
 
