@@ -300,7 +300,8 @@ async def handle_sse(request: Request):
     # We use request.scope directly to bypass any FastAPI/Starlette attribute abstraction issues
     scope = request.scope
     receive = request.receive
-    send = scope.get("send")
+    # In FastAPI/Starlette, the ASGI 'send' function is available as request._send
+    send = request._send
     
     # Render buffering fix: nudge the scope headers before the transport takes over
     # (FastAPI headers are already in the scope)
@@ -330,7 +331,8 @@ async def handle_messages(request: Request):
     """Unified Hub for message processing"""
     # In some versions of the SDK, the method is handle_post_message
     # It acts as an ASGI application, so we call it with (scope, receive, send)
-    await sse.handle_post_message(request.scope, request.receive, request.scope["send"])
+    # Use the internal _send function for the POST message handler as well
+    await sse.handle_post_message(request.scope, request.receive, request._send)
 
 # --- Standard REST Endpoints for ChatGPT Actions ---
 
