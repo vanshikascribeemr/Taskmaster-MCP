@@ -293,6 +293,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 @app.api_route("/sse/", methods=["GET", "POST"])
 async def handle_sse(request: Request):
     if request.method == "POST":
+        # Some clients accidentally POST to the SSE endpoint; route them to the message handler
         return await handle_messages(request)
         
     logger.info("SSE Connection opening", client=request.client.host)
