@@ -292,6 +292,12 @@ async def global_exception_handler(request: Request, exc: Exception):
 @app.api_route("/sse", methods=["GET", "POST"])
 @app.api_route("/sse/", methods=["GET", "POST"])
 async def handle_sse(request: Request):
+    if settings.MCP_API_KEY:
+        api_key = request.headers.get("X-API-Key") or request.query_params.get("api_key")
+        if api_key != settings.MCP_API_KEY:
+            logger.warning("Unauthorized SSE access attempt")
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
     if request.method == "POST":
         # Some clients accidentally POST to the SSE endpoint; route them to the message handler
         return await handle_messages(request)
@@ -329,6 +335,11 @@ async def handle_sse(request: Request):
 @app.api_route("/messages", methods=["POST"])
 @app.api_route("/messages/", methods=["POST"])
 async def handle_messages(request: Request):
+    if settings.MCP_API_KEY:
+        api_key = request.headers.get("X-API-Key") or request.query_params.get("api_key")
+        if api_key != settings.MCP_API_KEY:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
     """Unified Hub for message processing"""
     # In some versions of the SDK, the method is handle_post_message
     # It acts as an ASGI application, so we call it with (scope, receive, send)
